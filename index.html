@@ -1,0 +1,1440 @@
+<!--
+  =============================================================================
+  Financial Planner v4.0 - Public Demo Edition (demo/index.html)
+  =============================================================================
+  Interactive Client-Side Wealth & Retirement Planning Simulator
+  Zero data transmission • Complete privacy • Session memory auto-wipes on close
+  =============================================================================
+-->
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Planner | Interactive Wealth & Retirement Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="data/state_bundle.js"></script>
+  <script src="src/engine.js"></script>
+  <script src="src/store.js"></script>
+  <script src="src/ui.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            surface: {
+              bg: '#090d16',
+              card: '#0f172a',
+              cardHover: '#1e293b',
+              border: '#1e293b',
+              borderLight: '#334155'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #090d16; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body class="text-slate-100 font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-surface-border bg-surface-card/90 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20 text-sm">
+            ◈
+          </div>
+          <span class="font-bold tracking-tight text-lg text-white">Financial Planner <span class="text-xs uppercase tracking-wider text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 ml-1.5">Interactive Demo</span></span>
+        </div>
+
+        <!-- Global Tab Navigation -->
+        <nav class="hidden md:flex items-center pl-6 space-x-1" id="navTabs">
+          <button onclick="switchTab('dashboard')" id="tabBtn-dashboard" class="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded-md transition shadow-sm">
+            Dashboard
+          </button>
+          <button onclick="switchTab('assets')" id="tabBtn-assets" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800/60 transition flex items-center gap-1">
+            Assets & Ledger
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          </button>
+          <button onclick="switchTab('spending')" id="tabBtn-spending" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800/60 transition">
+            Annual Spending
+          </button>
+          <button onclick="switchTab('forecasts')" id="tabBtn-forecasts" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800/60 transition flex items-center gap-1.5">
+            Forecasts & Assumptions
+            <span class="px-1.5 py-0.2 rounded text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono">1k MC</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center space-x-2">
+        <button onclick="exportForecastArchiveCSV()" class="px-3 py-1.5 text-xs font-medium text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800/80 rounded-lg transition flex items-center gap-1.5 shadow-sm" title="Export complete Forecast Ledger across all 5 Monte Carlo percentiles plus planning assumptions as a single stacked CSV for Google Sheets / Excel">
+          <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Export Archive (CSV)
+        </button>
+
+        <button onclick="resetToDefaults()" class="px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:text-white bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 rounded-lg transition flex items-center gap-1 shadow-sm" title="Clear temporary session changes and restore modest 30-year-old starter baseline">
+          <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Reset Defaults
+        </button>
+
+        <button onclick="saveToDisk()" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-1.5 shadow-sm" title="Save your plan state JSON file to your local computer">
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+          Save to Disk
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Session Privacy Indicator Banner -->
+  <div class="bg-slate-900/90 border-b border-surface-border py-2 px-4 sm:px-6 lg:px-8 text-xs text-slate-300 flex flex-wrap items-center justify-between gap-2 shadow-inner">
+    <div class="flex items-center gap-2">
+      <span class="flex h-2 w-2 relative">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+      </span>
+      <span><strong>100% Private & In-Browser:</strong> All simulation calculations run locally in your web browser. No data is sent to a server. Edits are stored in temporary session memory and wiped immediately when you close this window.</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="resetToDefaults()" class="text-emerald-400 hover:text-emerald-300 underline text-[11px] font-mono">Reset to Defaults</button>
+    </div>
+  </div>
+
+  <!-- Main Unified Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: DASHBOARD -->
+    <!-- ========================================================================= -->
+    <div id="tab-dashboard" class="tab-content active space-y-6">
+
+      <!-- Section 1: 4 Classic Scorecards Across the Top -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="p-5 rounded-xl bg-surface-card border border-surface-border shadow-lg">
+          <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+            <span>Net Worth at Retirement</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-indigo-950 text-indigo-400 font-mono" id="scorecardRetireYearsBadge">In 8.5 Yrs</span>
+          </div>
+          <div class="mt-2 text-2xl font-bold font-mono text-white tabular-nums" id="scorecardNwRetire">$10.34M</div>
+          <div class="mt-1 text-xs text-slate-400 font-mono" id="scorecardRetireSub">Age 52 / 2035 target milestone</div>
+        </div>
+
+        <div class="p-5 rounded-xl bg-surface-card border border-surface-border shadow-lg">
+          <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+            <span>Terminal Wealth at Age 100</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 font-mono" id="scorecardTerminalBadge">Full Runway</span>
+          </div>
+          <div class="mt-2 text-2xl font-bold font-mono text-emerald-400 tabular-nums" id="scorecardTerminal">$166.02M</div>
+          <div class="mt-1 text-xs text-slate-400" id="scorecardTerminalSub">Safe portfolio runway through 100</div>
+        </div>
+
+        <div class="p-5 rounded-xl bg-surface-card border border-surface-border shadow-lg">
+          <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+            <span>Peak Net Worth</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-blue-950 text-blue-300 font-mono" id="scorecardPeakYearBadge">Year 2083</span>
+          </div>
+          <div class="mt-2 text-2xl font-bold font-mono text-blue-300 tabular-nums" id="scorecardPeak">$166.02M</div>
+          <div class="mt-1 text-xs text-slate-400" id="scorecardPeakSub">Occurs at Age 100 terminal</div>
+        </div>
+
+        <div class="p-5 rounded-xl bg-surface-card border border-surface-border shadow-lg">
+          <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+            <span>Lifetime Drawdown</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-950 text-amber-300 font-mono" id="scorecardDrawdownBadge">Funded Spend</span>
+          </div>
+          <div class="mt-2 text-2xl font-bold font-mono text-amber-300 tabular-nums" id="scorecardDrawdown">$11.77M</div>
+          <div class="mt-1 text-xs text-slate-400 font-mono" id="scorecardDrawdownSub">Total withdrawals funded across life</div>
+        </div>
+      </div>
+
+      <!-- Section 2: Secondary Quick KPIs & Time-to-Retire Optimizer -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4 flex flex-col justify-between">
+          <div>
+            <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Active Balance Sheet (Age 30)</span>
+            <div class="mt-2 flex items-baseline justify-between">
+              <span class="text-xs text-slate-400">Liquid Invested:</span>
+              <span class="text-xl font-bold font-mono text-white" id="dashTotalAssets">$115,000</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between border-t border-slate-800/60 pt-2">
+              <span class="text-xs text-slate-400">Annual Burn Rate:</span>
+              <span class="text-sm font-mono font-bold text-amber-300">$65,000 / yr</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between border-t border-slate-800/60 pt-2">
+              <span class="text-xs text-slate-400">Fixed Baseline Core:</span>
+              <span class="text-sm font-mono text-blue-300">$45,000 (69.2%)</span>
+            </div>
+            <div class="mt-2 flex items-baseline justify-between border-t border-slate-800/60 pt-2">
+              <span class="text-xs text-slate-400">Discretionary Trimmable:</span>
+              <span class="text-sm font-mono text-amber-400">$20,000 (30.8%)</span>
+            </div>
+          </div>
+
+          <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
+            <span class="text-slate-400 flex items-center gap-1.5">
+              <span>🎲</span> MC Longevity:
+            </span>
+            <span class="font-mono text-emerald-400 font-bold" id="dashMcScore85">Age 85: 99.0%</span>
+            <span class="text-slate-600">&bull;</span>
+            <span class="font-mono text-amber-300 font-bold" id="dashMcScore100">Age 100: 95.0%</span>
+          </div>
+        </div>
+
+        <!-- Section 2: Retirement Timing & Financial Independence Optimizer -->
+        <div class="lg:col-span-2 bg-surface-card rounded-xl border border-surface-border p-6 shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-indigo-950 border border-indigo-800/80 flex items-center justify-center text-indigo-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">Retirement Timing & Financial Independence Optimizer</h3>
+                <p class="text-[11px] text-slate-400">Calibrated to Age 30.1 &bull; Career contributions end upon retirement</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800/60" id="timingStatusBadge">Solvent to Age 100</span>
+          </div>
+
+          <!-- 3 Assessment KPI Blocks -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <!-- Assessment 1: Earliest Feasible Retirement with NO Spending Cuts -->
+            <div class="p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/60 space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Earliest Retirement (0% Cuts)</span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] bg-emerald-900 text-emerald-300 font-mono font-bold">Uncut</span>
+              </div>
+              <div class="text-lg font-bold font-mono text-emerald-400 tabular-nums" id="earliestFireAgeVal">Age 55.0 <span class="text-xs font-normal text-slate-400" id="earliestFireYrVal">(2051)</span></div>
+              <div class="text-[10px] text-slate-300 font-mono" id="earliestFireYrsLeftVal">~25.0 working years left</div>
+            </div>
+
+            <!-- Assessment 2: Active Target Retirement Age -->
+            <div class="p-3 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Target Retirement Age</span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] bg-indigo-950 text-indigo-300 font-mono" id="targetRetireBadge">Active Target</span>
+              </div>
+              <div class="text-lg font-bold font-mono text-white tabular-nums" id="targetRetireAgeVal">Age 60.0 <span class="text-xs font-normal text-slate-400" id="targetRetireYrVal">(2056)</span></div>
+              <div class="text-[10px] text-slate-400 font-mono" id="targetYearsLeftVal">~30.0 working years left</div>
+            </div>
+
+            <!-- Assessment 3: Lean Path (Discretionary Trim) -->
+            <div class="p-3 rounded-lg bg-indigo-950/30 border border-indigo-800/50 space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="text-[10px] uppercase tracking-wider text-indigo-400 font-semibold">Lean Path (<span id="leanTrimPctLabel">0%</span> Disc)</span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] bg-emerald-950 text-emerald-300 font-mono font-bold" id="leanSavedBadge">0.0 Yrs</span>
+              </div>
+              <div class="text-lg font-bold font-mono text-indigo-300 tabular-nums" id="leanRetireAgeVal">Age 60.0 <span class="text-xs font-normal text-slate-400" id="leanRetireYrVal">(2056)</span></div>
+              <div class="text-[10px] text-slate-400 font-mono" id="leanYearsLeftVal">30.0 working years left</div>
+            </div>
+          </div>
+
+          <!-- Sliders: Target Retirement Age & Discretionary Lifestyle Trim -->
+          <div class="space-y-3 pt-2 border-t border-slate-800/80">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300">Set Target Retirement Age: <strong class="text-indigo-400 font-mono" id="sliderRetireAgeLabel">Age 60.0 (Year 2056)</strong></span>
+                <span class="text-slate-400 font-mono text-[11px]" id="sliderRetireSpanLabel">30.0 Working Years Remaining</span>
+              </div>
+              <input id="sliderRetireAge" type="range" min="40" max="70" value="60" step="0.5" class="w-full accent-indigo-500 cursor-pointer bg-slate-800 rounded-lg h-2" oninput="onRetireAgeSliderChange(this.value)">
+              <div class="text-[10px] text-slate-500 flex justify-between font-mono">
+                <span>Age 45 (Aggressive)</span>
+                <span>Age 55</span>
+                <span>Age 60 (Target)</span>
+                <span>Age 67 (Full SS)</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300">Trim Discretionary Lifestyle to Accelerate Retirement: <strong class="text-emerald-400 font-mono" id="trimSliderText">0% ($0 / yr)</strong></span>
+                <span class="text-emerald-400 font-mono font-semibold text-[11px]" id="yearsSavedText">Retire 0.0 Years Sooner</span>
+              </div>
+              <input id="leanSlider" type="range" min="0" max="50" value="0" step="5" class="w-full accent-emerald-500 cursor-pointer bg-slate-800 rounded-lg h-2" oninput="onLeanSliderChange(this.value)">
+              <div class="text-[10px] text-slate-500 flex justify-between font-mono">
+                <span>0% (Full $20.0k Lifestyle)</span>
+                <span>25% (-$5.0k / yr)</span>
+                <span>50% (-$10.0k / yr)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Master Trajectory Chart -->
+      <div class="bg-surface-card rounded-xl border border-surface-border p-6 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+              Lifetime Net Worth Trajectory
+              <span class="text-xs font-normal text-slate-400" id="chartAgeRangeLabel">(Age 30 in 2026 &rarr; Age 100 in 2096)</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5" id="chartSubtext">
+              Target Retirement: <span id="subtextFireYear">2056</span> (Age <span id="subtextFireAge">60.0</span>) &bull; Long-Term Compounding through Age 100
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-2 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+            <button id="btnTrajNominal" onclick="setTrajectoryMode('nominal')" class="px-2.5 py-1 rounded font-semibold text-white bg-slate-800 shadow-sm">Nominal</button>
+            <button id="btnTrajReal" onclick="setTrajectoryMode('real')" class="px-2.5 py-1 rounded text-slate-400 hover:text-slate-200">Real (CPI Adj)</button>
+            <button id="btnTrajFocus" onclick="toggleTrajFocus()" class="px-2.5 py-1 rounded text-slate-400 hover:text-slate-200">Focus ($25M Cap)</button>
+            <button id="btnTrajLog" onclick="toggleTrajLog()" class="px-2.5 py-1 rounded text-slate-400 hover:text-slate-200">Log Scale</button>
+          </div>
+        </div>
+
+        <div class="h-72 w-full pt-2">
+          <canvas id="masterTrajectoryChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: ASSETS & LEDGER (PHASE 1 FULL DYNAMIC IMPLEMENTATION) -->
+    <!-- ========================================================================= -->
+    <div id="tab-assets" class="tab-content space-y-6">
+
+      <!-- Historical Asset Growth & Trends Chart with Year Sliders and Multi-Select Series Dropdown -->
+      <div class="bg-surface-card rounded-xl border border-surface-border p-6 shadow-xl space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+              Portfolio & Asset Value Trends
+              <span class="text-xs font-normal text-slate-400">(Historical Actuals)</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Multi-year historical trajectory. Minimum 5-year window with customizable series selection.</p>
+          </div>
+
+          <!-- Series Dropdown Toggle & Snapshot Action -->
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Multi-Select Series Dropdown -->
+            <div class="relative" id="seriesDropdownContainer">
+              <button type="button" onclick="toggleSeriesDropdown(event)" id="btnSeriesDropdown" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-200 hover:border-emerald-500/60 hover:bg-slate-900 transition-colors shadow-sm">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="seriesDropdownLabel">Series: Top 5 Selected</span>
+                <svg class="w-3.5 h-3.5 text-slate-400 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+
+              <!-- Dropdown Menu -->
+              <div id="seriesDropdownMenu" class="hidden absolute right-0 mt-2 w-80 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl p-3 z-50 space-y-2.5 backdrop-blur-md">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <span class="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Select Chart Series</span>
+                  <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="selectTop5Series()" class="text-[10px] text-emerald-400 hover:text-emerald-300 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/80 font-medium">Top 5</button>
+                    <button type="button" onclick="selectAllSeries()" class="text-[10px] text-blue-400 hover:text-blue-300 px-2 py-0.5 rounded bg-blue-950/80 border border-blue-800/80 font-medium">All</button>
+                    <button type="button" onclick="clearAllSeries()" class="text-[10px] text-slate-400 hover:text-slate-300 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 font-medium">Clear</button>
+                  </div>
+                </div>
+                <div class="max-h-64 overflow-y-auto space-y-1.5 pr-1" id="seriesCheckboxList">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Record Snapshot Button -->
+            <button type="button" onclick="openSnapshotModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-800/80 text-xs font-semibold hover:bg-emerald-900 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Record Snapshot
+            </button>
+          </div>
+        </div>
+
+        <!-- Left-Right Year Range Sliders (Enforcing 5-Year Min Span) -->
+        <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800/80 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400 font-medium">Active Date Window:</span>
+              <span class="font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded border border-emerald-800/70" id="trendRangeDisplay">
+                01/01/2021 — 12/31/2026 (5 Years)
+              </span>
+            </div>
+            <div class="text-[11px] text-slate-400 italic">
+              * Minimum 5-year window enforced. Trims to 01/01 & 12/31 bounds (midyear snapshots included).
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+            <div class="space-y-1.5">
+              <div class="flex justify-between text-xs text-slate-300">
+                <span class="font-medium">Start Year (01/01): <strong class="text-emerald-400 font-mono text-sm" id="startYearVal">2020</strong></span>
+                <span class="text-slate-500 font-mono text-[11px]" id="minDatasetYearLabel">Dataset Min: 2018</span>
+              </div>
+              <input type="range" id="sliderStartYear" oninput="onStartYearSliderChange(this.value)" class="w-full accent-emerald-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="flex justify-between text-xs text-slate-300">
+                <span class="font-medium">End Year (12/31): <strong class="text-emerald-400 font-mono text-sm" id="endYearVal">2025</strong></span>
+                <span class="text-slate-500 font-mono text-[11px]" id="maxDatasetYearLabel">Dataset Max: 2025</span>
+              </div>
+              <input type="range" id="sliderEndYear" oninput="onEndYearSliderChange(this.value)" class="w-full accent-emerald-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            </div>
+          </div>
+        </div>
+
+        <div class="h-64 w-full pt-2">
+          <canvas id="assetTrendsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Dedicated College Savings (529 Plan) Interactive Card -->
+      <div class="bg-surface-card rounded-xl border border-emerald-900/50 p-6 shadow-xl space-y-4 bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/20">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800/80 uppercase">
+                🎓 College Savings Goal (529)
+              </span>
+              <span class="text-xs text-slate-400 font-mono">Target Horizon: 18 Years &bull; Tax-Exempt Compound Growth</span>
+            </div>
+            <div class="flex items-baseline gap-3 pt-1">
+              <span class="text-2xl font-bold font-mono text-emerald-400 tabular-nums" id="hero529Balance">$0.00</span>
+              <span class="text-xs text-slate-400">Contributing: <strong class="text-white font-mono" id="hero529Monthly">$0 / mo</strong> ($0/yr)</span>
+              <span class="text-slate-600">&bull;</span>
+              <span class="text-xs text-slate-400">Projected at 18 (6.5%): <strong class="text-emerald-400 font-mono text-sm tabular-nums" id="hero529Projected">$0</strong></span>
+            </div>
+          </div>
+
+          <button onclick="toggle529Modal()" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            Adjust 529 Target & Additions
+          </button>
+        </div>
+
+        <!-- 529 Funding Progress Bar -->
+        <div class="space-y-1.5 pt-1">
+          <div class="flex justify-between text-[11px] font-mono text-slate-400">
+            <span>Funded: <strong class="text-slate-200" id="hero529Funded">$38.4k</strong></span>
+            <span>Target: <strong class="text-slate-200" id="hero529Target">$160.0k</strong> (4-Yr In-State UC Benchmark)</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+            <div id="hero529ProgressBar" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 24.0%"></div>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-500">
+            <span id="hero529PctLabel">24.0% of college benchmark funded</span>
+            <span>Grows completely tax-exempt for qualified educational expenses</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Assets Ledger Table with Real Live CRUD -->
+      <div class="bg-surface-card rounded-xl border border-surface-border overflow-hidden shadow-xl">
+        <div class="px-6 py-4 border-b border-surface-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/40">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+              Dynamic Assets Ledger
+              <span class="text-xs font-normal text-slate-400" id="assetCountLabel">(10 Connected Accounts)</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Click "Edit" on any account to update balances or cost basis. Data persists directly to memory & disk.</p>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button onclick="recordAssetSnapshot()" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+              <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              Record Snapshot
+            </button>
+            <button onclick="openAddAssetModal()" class="px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition flex items-center gap-1.5 shadow-sm shadow-indigo-600/30">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add New Asset
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-surface-border text-[11px] uppercase tracking-wider text-slate-400 font-semibold bg-slate-950/30">
+                <th class="py-3 px-4">Account / Asset</th>
+                <th class="py-3 px-4">Institution</th>
+                <th class="py-3 px-4">Tax Classification</th>
+                <th class="py-3 px-4 text-right">Current Balance</th>
+                <th class="py-3 px-4 text-right">Cost Basis</th>
+                <th class="py-3 px-4 text-right">Unrealized Gain</th>
+                <th class="py-3 px-4 text-right">5-Yr CAGR</th>
+                <th class="py-3 px-4 text-right">Return / Vol (&sigma;)</th>
+                <th class="py-3 px-4">DAF Eligible</th>
+                <th class="py-3 px-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-border text-slate-200 font-medium" id="assetsTableBody">
+              <!-- Dynamically populated from window.appState.assets -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="px-6 py-4 bg-slate-950/60 border-t border-surface-border flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400">
+          <div class="flex items-center gap-4">
+            <span>Taxable: <strong class="text-amber-300 font-mono" id="sumTaxable">$0.00</strong></span>
+            <span class="text-slate-700">&bull;</span>
+            <span>Pre-Tax: <strong class="text-blue-300 font-mono" id="sumPreTax">$0.00</strong></span>
+            <span class="text-slate-700">&bull;</span>
+            <span>Tax-Free / 529: <strong class="text-emerald-300 font-mono" id="sumTaxFree">$0.00</strong></span>
+          </div>
+          <div class="flex items-center gap-6 font-mono text-slate-300">
+            <span>Total Gains: <strong class="text-emerald-400 font-semibold" id="sumGains">$0.00</strong></span>
+            <span>Total Invested: <strong class="text-white font-bold text-sm" id="sumTotal">$0.00</strong></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: ANNUAL SPENDING -->
+    <!-- ========================================================================= -->
+    <div id="tab-spending" class="tab-content space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="p-5 rounded-xl bg-surface-card border border-surface-border">
+          <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+            <span>2025 Total Net Spend</span>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 font-mono font-semibold">-29.7% YoY</span>
+          </div>
+          <div class="mt-2 text-2xl font-bold font-mono text-white tabular-nums">$306,388</div>
+          <div class="mt-1 text-xs text-slate-400 font-mono">$25,532 / mo (down from $435.9k in 2024)</div>
+        </div>
+        <div class="p-5 rounded-xl bg-surface-card border border-surface-border">
+          <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+            <span>Fixed / Non-Negotiable</span>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-blue-950/80 text-blue-300 border border-blue-800/60 font-mono font-semibold">69.4% of budget</span>
+          </div>
+          <div class="mt-2 text-2xl font-bold font-mono text-blue-300 tabular-nums">$212,684</div>
+          <div class="mt-1 text-xs text-slate-400 font-mono">$17,724 / mo (Mortgage, Health, Care)</div>
+        </div>
+        <div class="p-5 rounded-xl bg-surface-card border border-surface-border">
+          <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+            <span>Discretionary / Flexible</span>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-amber-950/80 text-amber-300 border border-amber-800/60 font-mono font-semibold">30.6% of budget</span>
+          </div>
+          <div class="mt-2 text-2xl font-bold font-mono text-amber-300 tabular-nums">$93,704</div>
+          <div class="mt-1 text-xs text-slate-400 font-mono">$7,809 / mo (Travel, Dining, Hobbies)</div>
+        </div>
+        <div class="p-5 rounded-xl bg-surface-card border border-surface-border bg-gradient-to-br from-indigo-950/20 to-slate-900/40">
+          <div class="flex items-center justify-between text-indigo-300 text-xs font-medium">
+            <span>Belt-Tightening Buffer</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] bg-indigo-900/60 text-indigo-300 border border-indigo-700/60 font-mono">GK Safe Zone</span>
+          </div>
+          <div class="mt-2 text-2xl font-bold font-mono text-emerald-400 tabular-nums">-$46,852</div>
+          <div class="mt-1 text-xs text-slate-400">Available downturn trim (50% Disc)</div>
+        </div>
+      </div>
+
+      <!-- Historical Spending Trends Chart Card -->
+      <div class="bg-surface-card rounded-xl border border-surface-border p-6 shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+              <span>📈</span> Historical Spending Trends &amp; Baseline Evolution
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Multi-year trendlines (2021–2025 actuals) cut by Fixed Core vs. Discretionary Pool. Click any category row below to drill down and add notes.</p>
+          </div>
+          <div class="flex items-center gap-4 text-xs bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-1.5 font-mono">
+            <label class="flex items-center gap-1.5 cursor-pointer text-indigo-300">
+              <input type="checkbox" id="chkSpendTotal" checked onchange="renderSpendingTrendsChart()" class="rounded bg-slate-900 border-slate-700 text-indigo-500 focus:ring-0">
+              Total Spend
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-sky-300">
+              <input type="checkbox" id="chkSpendFixed" checked onchange="renderSpendingTrendsChart()" class="rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0">
+              Fixed Core
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-amber-300">
+              <input type="checkbox" id="chkSpendDisc" checked onchange="renderSpendingTrendsChart()" class="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0">
+              Discretionary
+            </label>
+          </div>
+        </div>
+
+        <div class="h-64 w-full relative">
+          <canvas id="spendingTrendsChart"></canvas>
+        </div>
+
+        <!-- Trickle-Up Timeline Annotations Banner -->
+        <div id="spendingTimelineNotes" class="pt-2 border-t border-surface-border flex flex-wrap items-center gap-2 text-xs">
+          <!-- Populated dynamically with active timeline annotations -->
+        </div>
+      </div>
+
+      <div class="bg-surface-card rounded-xl border border-surface-border overflow-hidden shadow-xl">
+        <div class="px-6 py-4 border-b border-surface-border flex items-center justify-between bg-slate-900/40">
+          <h2 class="text-base font-semibold text-white">Annual Categorized Spending Ledger (23 Categories)</h2>
+          <button class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg">
+            Ingest Spreadsheet
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead id="spendingTableHead">
+              <tr class="border-b border-surface-border text-[11px] uppercase tracking-wider text-slate-400 font-semibold bg-slate-950/40">
+                <th class="py-3 px-5">Spending Category</th>
+                <th class="py-3 px-3">Classification</th>
+                <th class="py-3 px-3 text-right text-white">2025 Actual</th>
+                <th class="py-3 px-3 text-right text-slate-400">Monthly Avg</th>
+                <th class="py-3 px-3 text-right">2024 Actual</th>
+                <th class="py-3 px-3 text-right">2023 Actual</th>
+                <th class="py-3 px-3 text-right">2022 Actual</th>
+                <th class="py-3 px-3 text-right">2021 Actual</th>
+                <th class="py-3 px-3 text-right">YoY Delta</th>
+                <th class="py-3 px-4">Priority</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-border text-slate-200 font-medium" id="spendingTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: FORECASTS & ASSUMPTIONS (MONTE CARLO SIMULATION STUDIO & INPUTS) -->
+    <!-- ========================================================================= -->
+    <div id="tab-forecasts" class="tab-content space-y-6">
+
+      <!-- SECTION 1: MONTE CARLO STOCHASTIC SIMULATION STUDIO (AT TOP OF PAGE) -->
+      <div class="bg-surface-card rounded-xl border border-surface-border p-6 shadow-xl space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center gap-2">
+              <span>🎲</span> Monte Carlo Stochastic Simulation (1,000 Sequences)
+            </h2>
+            <div class="flex flex-wrap items-center gap-4 text-xs mt-1 text-slate-400 font-mono">
+              <span>EXPECTED RETURN (&mu;): <strong class="text-indigo-400" id="mcHeaderReturn">8.0%</strong></span>
+              <span>CURRENT VOLATILITY (&sigma;): <strong class="text-blue-400" id="mcHeaderVol">19.5%</strong> <span class="text-[10px] text-slate-500 font-normal">(Dynamic Rebalancing)</span></span>
+              <span>UNTRIMMED BASELINE SURVIVAL: <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800" id="mcSurvival85">AGE 85: 88.5%</span> | <span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800" id="mcSurvival100">AGE 100: 72.1%</span></span>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <span id="mcStaleBadge" class="hidden px-2.5 py-1 rounded bg-amber-950/80 text-amber-300 border border-amber-800/80 text-xs font-mono font-medium animate-pulse">
+              ⚠️ Parameters changed — click Re-run
+            </span>
+            <div class="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+              <button id="btnMcFocus" onclick="toggleMcFocus()" class="px-2.5 py-1 rounded font-semibold text-white bg-slate-800 shadow-sm">Focus View ($25M Cap)</button>
+              <button id="btnMcLog" onclick="toggleMcLog()" class="px-2.5 py-1 rounded text-slate-400 hover:text-slate-200">Log Scale</button>
+            </div>
+            <button id="btnRunMc" onclick="runMonteCarloSimulation()" class="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-md transition flex items-center gap-1.5">
+              ⚡ Re-run 1,000 Simulations
+            </button>
+          </div>
+        </div>
+
+        <!-- Guyton-Klinger Down-Market Trimming Recommendation Panel -->
+        <div class="p-4 rounded-xl bg-slate-950 border border-amber-900/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 text-xs font-bold text-amber-300">
+              <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              Guyton-Klinger Recommendation to Achieve &ge;85% Solvency at Age 85:
+            </div>
+            <p class="text-xs text-slate-300" id="gkRecommendationText">
+              Untrimmed baseline achieves <strong class="text-emerald-400 font-mono" id="gkBase85">88.5%</strong> (exceeds 85% target threshold). If severe market turbulence occurs, an optional trim of <strong class="text-amber-300 font-mono" id="gkTrimPct">10.0%</strong> (<strong class="text-amber-300 font-mono" id="gkTrimDollars">-$9,370 / yr</strong>) strictly from Discretionary categories (<em>Travel & Dining</em>) <strong>only during down-market years</strong> boosts terminal runway.
+            </p>
+          </div>
+
+          <div class="shrink-0 flex items-center gap-2">
+            <button onclick="runMonteCarloSimulation(true)" id="btnSimulateGuardrails" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg transition">
+              Simulate with Guardrails Applied (<span id="gkGuardrailSolvency">&rarr; 94.2%</span>)
+            </button>
+          </div>
+        </div>
+
+        <div class="h-80 w-full pt-2">
+          <canvas id="mcFanChart"></canvas>
+        </div>
+      </div>
+
+      <!-- SECTION 1B: RETIREMENT TIMING & DISCRETIONARY TRIM SLIDERS (PERMANENTLY VISIBLE & SYNCED) -->
+      <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <span>⏱️</span> Retirement Timing &amp; Lifestyle Trim Parameters
+          </h3>
+          <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-bold">
+            Synchronized with Dashboard
+          </span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
+          <!-- Target Retirement Age Slider -->
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">Target Retirement Age: <strong class="text-indigo-400 font-mono" id="sliderRetireAgeLabelForecasts">Age 52.0 (Year 2035)</strong></span>
+              <span class="text-slate-400 font-mono text-[11px]" id="sliderRetireSpanLabelForecasts">8.5 Working Years Remaining</span>
+            </div>
+            <input id="sliderRetireAgeForecasts" type="range" min="45" max="65" value="52" step="0.5" class="w-full accent-indigo-500 cursor-pointer bg-slate-800 rounded-lg h-2" oninput="onRetireAgeSliderChange(this.value)">
+            <div class="text-[10px] text-slate-500 flex justify-between font-mono">
+              <span>Age 45 (Aggressive)</span>
+              <span>Age 52 (Baseline Milestone)</span>
+              <span>Age 60 (Traditional)</span>
+              <span>Age 65</span>
+            </div>
+          </div>
+
+          <!-- Trim Discretionary Lifestyle Slider -->
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">Trim Discretionary Lifestyle: <strong class="text-emerald-400 font-mono" id="trimSliderTextForecasts">0% (-$0 / yr)</strong></span>
+              <span class="text-emerald-400 font-mono font-semibold text-[11px]" id="yearsSavedTextForecasts">Retire 0.0 Years Sooner</span>
+            </div>
+            <input id="leanSliderForecasts" type="range" min="0" max="50" value="0" step="5" class="w-full accent-emerald-500 cursor-pointer bg-slate-800 rounded-lg h-2" oninput="onLeanSliderChange(this.value)">
+            <div class="text-[10px] text-slate-500 flex justify-between font-mono">
+              <span>0% (Full Discretionary)</span>
+              <span>25% (-$23.4k / yr)</span>
+              <span>50% (-$46.8k / yr)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Forecasts Sub-Tab Navigation Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-surface-border pb-3 pt-1">
+        <div class="flex items-center space-x-2">
+          <button id="subtabBtn-ledger" onclick="switchForecastSubTab('ledger')" class="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-md shadow-indigo-600/30 transition flex items-center gap-1.5">
+            <span>📊</span> Year-by-Year Forecast Ledger (58 Years)
+          </button>
+          <button id="subtabBtn-params" onclick="switchForecastSubTab('params')" class="px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5">
+            <span>⚙️</span> Parameters &amp; Assumptions
+          </button>
+          <button id="subtabBtn-playbook" onclick="switchForecastSubTab('playbook')" class="px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5">
+            <span>📋</span> Strategic Action Playbook &amp; Checklist
+          </button>
+        </div>
+      </div>
+
+      <!-- SUB-TAB A: PARAMETERS & ASSUMPTIONS CONTAINER (HIDDEN BY DEFAULT) -->
+      <div id="subtab-forecasts-params" class="hidden space-y-6">
+
+      <!-- SECTION 2: MACROECONOMIC & PORTFOLIO PARAMETERS STRIP -->
+      <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4">
+        <h3 class="text-sm font-bold text-white flex items-center justify-between">
+          <span>🌐 Macroeconomic &amp; Portfolio Compounding Parameters</span>
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 text-xs pt-1">
+          <div class="p-3 bg-slate-950/60 rounded-lg border border-slate-800 flex flex-col justify-between">
+            <div class="flex justify-between items-center text-slate-300">
+              <span class="font-semibold text-[11px] uppercase tracking-wider text-slate-400">Current Portfolio Return</span>
+              <span class="font-mono text-indigo-400 font-bold text-sm" id="lblWeightedReturn">8.7%</span>
+            </div>
+            <p class="text-[10px] text-slate-500 mt-1">Asset-weighted across active accounts</p>
+          </div>
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1"><span>EFFECTIVE TAX</span><span class="font-mono text-amber-400 font-bold" id="lblEffectiveTax">33.0%</span></div>
+            <input type="range" id="sliderEffectiveTax" min="20.0" max="45.0" step="1" value="33.0" oninput="onMacroSliderChange('effectiveTax', this.value)" class="w-full accent-amber-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+          </div>
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1"><span>CPI INFLATION</span><span class="font-mono text-slate-300 font-bold" id="lblCpiInflation">3.0%</span></div>
+            <input type="range" id="sliderCpiInflation" min="1.5" max="5.0" step="0.2" value="3.0" oninput="onMacroSliderChange('cpiInflation', this.value)" class="w-full accent-slate-400 bg-slate-800 h-2 rounded-lg cursor-pointer">
+          </div>
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1"><span>HEALTHCARE INFLATION</span><span class="font-mono text-rose-400 font-bold" id="lblHealthcareInflation">4.5%</span></div>
+            <input type="range" id="sliderHealthcareInflation" min="2.0" max="8.0" step="0.5" value="4.5" oninput="onMacroSliderChange('healthcareInflation', this.value)" class="w-full accent-rose-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+          </div>
+
+          <div class="p-3.5 bg-slate-950/80 rounded-xl border border-indigo-900/40 col-span-1 sm:col-span-2 lg:col-span-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-1">
+            <div class="flex items-start gap-3">
+              <span class="text-xl">🔄</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-xs text-white">Strategic Roth Conversion Ladder</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800/80">Tax Optimization Engine</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                  Converts pre-tax 401(k) / IRA funds to a tax-free Roth bucket between retirement and Age 70, filling the 12% federal tax bracket and slashing Age 73+ RMD liabilities.
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <span class="text-xs font-medium text-slate-300" id="lblRothToggleParams">Active (ON)</span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggleRothConversionParams" checked onchange="toggleRothConversion(this.checked)" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2B: ASSET ALLOCATION GLIDE PATH & RETURN TAPER (TOGGLE 1) -->
+      <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+          <div class="flex items-start gap-3">
+            <span class="text-2xl">📉</span>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-white">Asset Allocation Glide Path &amp; Conservative Return Taper</h3>
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800/80">Mechanism 1</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Gradually shifts portfolio compounding from aggressive equity growth (~9%) to capital-preservation fixed income in later retirement.
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs font-medium text-slate-300" id="lblGlidePathToggle">Disabled (OFF)</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggleGlidePath" onchange="toggleGlidePath(this.checked)" class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+            </label>
+          </div>
+        </div>
+
+        <div id="glidePathControls" class="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs opacity-50 pointer-events-none transition-opacity duration-200">
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span class="font-medium uppercase tracking-wider text-[11px] text-slate-400">Taper Onset Age</span>
+              <span class="font-mono text-cyan-400 font-bold" id="lblGlideOnsetAge">Age 60</span>
+            </div>
+            <input type="range" id="sliderGlideOnsetAge" min="50" max="75" step="1" value="60" oninput="onGlideSliderChange('onsetAge', this.value)" class="w-full accent-cyan-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            <p class="text-[10px] text-slate-500 mt-1">Age when expected returns begin de-risking</p>
+          </div>
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span class="font-medium uppercase tracking-wider text-[11px] text-slate-400">Conservative Target Age</span>
+              <span class="font-mono text-cyan-400 font-bold" id="lblGlideTerminalAge">Age 75</span>
+            </div>
+            <input type="range" id="sliderGlideTerminalAge" min="65" max="90" step="1" value="75" oninput="onGlideSliderChange('terminalAge', this.value)" class="w-full accent-cyan-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            <p class="text-[10px] text-slate-500 mt-1">Age when portfolio reaches terminal rate</p>
+          </div>
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span class="font-medium uppercase tracking-wider text-[11px] text-slate-400">Target Conservative Return</span>
+              <span class="font-mono text-cyan-400 font-bold" id="lblGlideTerminalReturn">5.5%</span>
+            </div>
+            <input type="range" id="sliderGlideTerminalReturn" min="3.0" max="7.0" step="0.1" value="5.5" oninput="onGlideSliderChange('terminalReturn', this.value)" class="w-full accent-cyan-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            <p class="text-[10px] text-slate-500 mt-1">Blended preservation yield at target age</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3: DECADAL LIFESTYLE SPENDING SLIDERS STUDIO (RETIREMENT SMILE) -->
+      <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <span>📉</span> Decadal Lifestyle Spending Sliders (Retirement Smile)
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Adjust lifestyle spend percentage by decade &bull; <em class="text-emerald-400">Lowering these simulates the classic retirement smile and significantly extends runway!</em>
+            </p>
+          </div>
+          <span class="px-2.5 py-1 rounded text-xs font-mono bg-indigo-950 text-indigo-300 border border-indigo-800/60 font-semibold">
+            Decadal Decay Engine
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-2">
+          <!-- 50s -->
+          <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-300 font-semibold">50s (Early Go-Go)</span>
+              <span class="font-mono text-emerald-400 font-bold text-sm" id="lblDecay50s">100%</span>
+            </div>
+            <input type="range" id="sliderDecay50s" min="0.60" max="1.20" step="0.05" value="1.00" oninput="onDecadalSliderChange('age50to59', this.value)" class="w-full accent-emerald-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            <div class="text-[10px] text-slate-500 flex justify-between font-mono"><span>60%</span><span>100% (Base)</span><span>120%</span></div>
+          </div>
+
+          <!-- 60s -->
+          <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-300 font-semibold">60s (Mid Slow-Go)</span>
+              <span class="font-mono text-blue-400 font-bold text-sm" id="lblDecay60s">90%</span>
+            </div>
+            <input type="range" id="sliderDecay60s" min="0.50" max="1.10" step="0.05" value="0.90" oninput="onDecadalSliderChange('age60to69', this.value)" class="w-full accent-blue-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            <div class="text-[10px] text-slate-500 flex justify-between font-mono"><span>50%</span><span>90% (Base)</span><span>110%</span></div>
+          </div>
+
+          <!-- 70s -->
+          <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-300 font-semibold">70s (Late Slow-Go)</span>
+              <span class="font-mono text-amber-400 font-bold text-sm" id="lblDecay70s">80%</span>
+            </div>
+            <input type="range" id="sliderDecay70s" min="0.40" max="1.00" step="0.05" value="0.80" oninput="onDecadalSliderChange('age70to79', this.value)" class="w-full accent-amber-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            <div class="text-[10px] text-slate-500 flex justify-between font-mono"><span>40%</span><span>80% (Base)</span><span>100%</span></div>
+          </div>
+
+          <!-- 80s-100 -->
+          <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-300 font-semibold">80s–100 (Mature No-Go)</span>
+              <span class="font-mono text-purple-400 font-bold text-sm" id="lblDecay80s">65%</span>
+            </div>
+            <input type="range" id="sliderDecay80s" min="0.30" max="0.90" step="0.05" value="0.65" oninput="onDecadalSliderChange('age80to100', this.value)" class="w-full accent-purple-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+            <div class="text-[10px] text-slate-500 flex justify-between font-mono"><span>30%</span><span>65% (Base)</span><span>90%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 4: INCOMES, CONTRIBUTIONS & SOCIAL SECURITY -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Earned Incomes & Contributions -->
+        <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <span>💼</span> Earned Income & Additions (Career Phase)
+            </h3>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono font-semibold" id="careerPhaseRetireBadge">
+              Career Phase
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Primary Salary ($/yr)</label>
+              <div class="relative">
+                <span class="absolute left-3 top-2 font-mono text-slate-500">$</span>
+                <input type="number" step="1000" id="inpJSalary" onchange="onIncomeChange('jSalary', Number(this.value))" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <p class="text-[10px] text-slate-500 mt-1">Pre-tax salary received while working.</p>
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Secondary / Other Income ($/yr)</label>
+              <div class="relative">
+                <span class="absolute left-3 top-2 font-mono text-slate-500">$</span>
+                <input type="number" step="1000" id="inpNSalary" onchange="onIncomeChange('nSalary', Number(this.value))" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <p class="text-[10px] text-slate-400 mt-1">Supplemental taxable cash flow or partner income.</p>
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Annual 401(k) Additions ($/yr)</label>
+              <div class="relative">
+                <span class="absolute left-3 top-2 font-mono text-slate-500">$</span>
+                <input type="number" step="1000" id="inpAdd401k" onchange="onIncomeChange('add401k', Number(this.value))" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <p class="text-[10px] text-slate-500 mt-1">Combined employee + employer match.</p>
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Annual IRA Additions ($/yr)</label>
+              <div class="relative">
+                <span class="absolute left-3 top-2 font-mono text-slate-500">$</span>
+                <input type="number" step="1000" id="inpAddIRA" onchange="onIncomeChange('addIRA', Number(this.value))" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <p class="text-[10px] text-slate-500 mt-1">Backdoor Roth or Traditional additions.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Social Security Parameters -->
+        <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <span>🏛️</span> Social Security PIA & Parameters
+            </h3>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-blue-950 text-blue-300 border border-blue-800 font-mono font-semibold">
+              Retirement Income
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Monthly PIA ($/mo)</label>
+              <div class="relative">
+                <span class="absolute left-3 top-2 font-mono text-slate-500">$</span>
+                <input type="number" step="100" id="inpSSMonthly" onchange="onIncomeChange('ssMonthly', Number(this.value))" class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-7 pr-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <p class="text-[10px] text-slate-500 mt-1">Estimated primary benefit at FRA.</p>
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Claiming Age</label>
+              <input type="number" min="62" max="70" id="inpSSClaimAge" onchange="onIncomeChange('ssClaimAge', Number(this.value))" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+              <p class="text-[10px] text-slate-500 mt-1">Age 62–70 (Delayed credit +8%/yr).</p>
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">SSI Haircut / Cut %</label>
+              <div class="relative">
+                <input type="number" step="5" min="0" max="50" id="inpSSCutPct" onchange="onIncomeChange('ssCutPct', Number(this.value) / 100)" class="w-full bg-slate-950 border border-slate-800 rounded-lg pr-7 pl-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+                <span class="absolute right-3 top-2 font-mono text-slate-500">%</span>
+              </div>
+              <p class="text-[10px] text-rose-400 mt-1">Stress test for trust fund cuts.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 5: EQUITY VESTING SCHEDULE & DISCRETE EVENTS -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Equity Vesting Schedule (RSUs) Table (Fully Editable & Expandable) -->
+        <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <span>📈</span> Equity Vesting & Stock Grants
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Add or edit projected stock vesting grants for any year.</p>
+            </div>
+            <button type="button" onclick="addRsuGrantYear()" class="px-2.5 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition shadow-sm flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              + Add Year
+            </button>
+          </div>
+
+          <div class="overflow-y-auto max-h-64 border border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-surface-border text-[11px] uppercase tracking-wider text-slate-400 font-semibold bg-slate-950/60 sticky top-0">
+                  <th class="py-2.5 px-3">Grant Year</th>
+                  <th class="py-2.5 px-3">Age</th>
+                  <th class="py-2.5 px-3 text-right">Gross Units</th>
+                  <th class="py-2.5 px-3 text-right">Sell-to-Cover</th>
+                  <th class="py-2.5 px-3 text-right">Net Shares</th>
+                  <th class="py-2.5 px-3 text-right">Est. Price</th>
+                  <th class="py-2.5 px-3 text-right">Net Value ($)</th>
+                  <th class="py-2.5 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-surface-border text-slate-300 font-mono" id="rsuTableBody">
+                <!-- Populated dynamically via renderRsuTable() -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Discrete Life Events & Cash Infusions -->
+        <div class="p-6 rounded-xl bg-surface-card border border-surface-border shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <span>📅</span> Discrete Life Events & Cash Infusions
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Model discrete events like downsizing, inheritances, or capital expenses.</p>
+            </div>
+            <button type="button" onclick="openAddEventModal()" class="px-2.5 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition shadow-sm">
+              + Add Event
+            </button>
+          </div>
+
+          <div id="eventsListContainer" class="p-6 border border-dashed border-slate-800 rounded-xl text-center text-xs text-slate-500">
+            No discrete events configured. Click "+ Add Event" above.
+          </div>
+        </div>
+      </div>
+      </div> <!-- End #subtab-forecasts-params -->
+
+      <!-- SUB-TAB B: YEAR-BY-YEAR FORECAST LEDGER CONTAINER (ACTIVE BY DEFAULT) -->
+      <div id="subtab-forecasts-ledger" class="space-y-4">
+        <!-- Summary KPI strip for selected simulation path -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" id="ledgerKpiStrip">
+          <!-- Populated dynamically via renderForecastLedgerTable() -->
+        </div>
+
+        <!-- Freeze-Panes Financial Statement Table -->
+        <div class="bg-surface-card rounded-xl border border-surface-border overflow-hidden shadow-2xl">
+          <div class="px-6 py-3 border-b border-surface-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60">
+            <div class="flex items-center gap-3">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <span>📋</span> Comprehensive Multi-Decade Cash Flow &amp; Balance Sheet Matrix
+              </h3>
+              <span id="ledgerPathBadge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">50th Percentile (Median)</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs font-mono">
+              <span class="text-slate-400 text-[11px]">Format:</span>
+              <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800">&lt;$1M: $Xk (0 dec)</span>
+              <span class="px-2 py-0.5 rounded bg-slate-950 text-slate-300 border border-slate-800">&ge;$1M: $X.XM (1 dec)</span>
+            </div>
+          </div>
+
+          <!-- Simulation Path Selection Pills & Pivot Toggle Bar -->
+          <div class="px-6 py-2.5 bg-slate-950/80 border-b border-surface-border/80 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-400 text-[11px]">Simulation Path:</span>
+              <div class="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+                <button onclick="selectLedgerPercentile('p10')" id="btnPill-p10" class="px-2.5 py-0.5 rounded text-[11px] text-rose-400 hover:bg-rose-950/60 transition">10th (Severe)</button>
+                <button onclick="selectLedgerPercentile('p25')" id="btnPill-p25" class="px-2.5 py-0.5 rounded text-[11px] text-amber-400 hover:bg-amber-950/60 transition">25th (Weak)</button>
+                <button onclick="selectLedgerPercentile('p50')" id="btnPill-p50" class="px-2.5 py-0.5 rounded text-[11px] bg-indigo-600 text-white font-semibold transition">50th (Median)</button>
+                <button onclick="selectLedgerPercentile('p75')" id="btnPill-p75" class="px-2.5 py-0.5 rounded text-[11px] text-emerald-400 hover:bg-emerald-950/60 transition">75th (Strong)</button>
+                <button onclick="selectLedgerPercentile('p90')" id="btnPill-p90" class="px-2.5 py-0.5 rounded text-[11px] text-purple-400 hover:bg-purple-950/60 transition">90th (Bull)</button>
+              </div>
+            </div>
+            <button onclick="toggleLedgerOrientation()" id="btnTogglePivot" class="px-3 py-1 text-xs font-medium rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition flex items-center gap-1.5 shadow-sm">
+              <span>⇄</span> <span id="lblPivotMode">Pivot: Years as Rows</span>
+            </button>
+          </div>
+
+          <!-- 2D Freeze-Panes Table Container (with pb-14 padding preventing scrollbar occlusion) -->
+          <div class="overflow-x-auto overflow-y-auto max-h-[720px] pb-14 relative scrollbar-thin scrollbar-thumb-slate-700 bg-surface-bg" id="forecastLedgerTableContainer">
+            <!-- Dynamically populated via renderForecastLedgerTable() -->
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB C: STRATEGIC ACTION PLAYBOOK & CHRONOLOGICAL CHECKLIST CONTAINER -->
+      <div id="subtab-forecasts-playbook" class="hidden space-y-6">
+        <!-- Playbook Header Banner & Global Controls -->
+        <div class="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 shadow-2xl space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2.5">
+                <span class="text-2xl">📋</span>
+                <h3 class="text-lg font-bold text-white tracking-wide">
+                  Strategic Retirement Action Playbook &amp; Chronological Checklist
+                </h3>
+              </div>
+              <p class="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+                Dynamic year-by-year action steps mapped directly to your financial timeline (Target Retirement: <span id="playbookTargetAgeBadge" class="font-bold text-indigo-300">Age 52.0</span> / Year <span id="playbookTargetYearBadge" class="font-bold text-indigo-300">2035</span>). Check items off as you execute them; completion state is saved locally and persistently tracked.
+              </p>
+            </div>
+            <!-- Checklist Progress KPI & Roth Toggle -->
+            <div class="flex flex-wrap items-center gap-3 shrink-0">
+              <div class="px-4 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-center shadow-md">
+                <div class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Playbook Progress</div>
+                <div class="text-base font-bold font-mono text-emerald-400 mt-0.5" id="playbookProgressText">0 / 14 (0%)</div>
+              </div>
+              <div class="px-4 py-2 rounded-xl bg-slate-950/80 border border-indigo-900/50 flex items-center gap-3 shadow-md">
+                <div class="text-left">
+                  <div class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Roth Ladder Engine</div>
+                  <div class="text-xs font-bold text-indigo-300" id="lblRothTogglePlaybook">Active (ON)</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="toggleRothConversionPlaybook" checked onchange="toggleRothConversion(this.checked)" class="sr-only peer">
+                  <div class="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Phase Cards Container (Populated via renderStrategicPlaybook()) -->
+        <div id="playbookPhasesContainer" class="space-y-6">
+          <!-- Dynamically populated via renderStrategicPlaybook() -->
+        </div>
+      </div>
+
+    </div> <!-- End #tab-forecasts -->
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODALS: ADD/EDIT ASSET & ADJUST 529 SCHEDULE -->
+  <!-- ========================================================================= -->
+
+  <!-- Modal 1: Add / Edit Asset Modal -->
+  <div id="assetModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-card border border-surface-borderLight rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-surface-border pb-3">
+        <h3 class="text-base font-bold text-white" id="modalAssetTitle">Add New Portfolio Asset</h3>
+        <button onclick="closeAssetModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <input type="hidden" id="editAssetId" value="">
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Asset / Account Name</label>
+          <input type="text" id="inputAssetName" placeholder="e.g. Taxable Brokerage Account, Coinbase" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Institution / Platform</label>
+            <input type="text" id="inputAssetInst" placeholder="Wealthfront, Vanguard, Chase" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Tax Classification</label>
+            <select id="inputAssetTax" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+              <option value="Taxable Equity">Taxable Equity (Cap Gains)</option>
+              <option value="Pre-Tax">Pre-Tax (401k / Traditional IRA / SEP)</option>
+              <option value="Tax-Free 529">Tax-Free (529 College / Roth)</option>
+              <option value="Cash / Other">Cash / HYSA (Zero Cap Gains)</option>
+              <option value="Illiquid">Illiquid Private Equity</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Balance ($)</label>
+            <input type="number" id="inputAssetBalance" placeholder="50000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Cost Basis ($)</label>
+            <input type="number" id="inputAssetCostBasis" placeholder="30000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">5-Yr CAGR (%)</label>
+            <input type="number" step="0.1" id="inputAssetCagr" placeholder="8.5" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Exp. Return (%)</label>
+            <input type="number" step="0.1" id="inputAssetExpReturn" placeholder="8.0" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Volatility (σ %)</label>
+            <input type="number" step="0.1" id="inputAssetVolatility" placeholder="16.0" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div id="equitySharesFields" class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/60">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Shares Held (Units)</label>
+            <input type="number" step="0.01" id="inputAssetShares" oninput="recalcAssetModalBalance()" placeholder="5970.18" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Share Price ($)</label>
+            <input type="number" step="0.01" id="inputAssetSharePrice" oninput="recalcAssetModalBalance()" placeholder="344.41" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-surface-border">
+        <button type="button" id="btnDeleteAsset" onclick="deleteCurrentAsset()" class="hidden px-3 py-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 text-xs font-semibold transition">
+          Delete Account
+        </button>
+        <div class="flex items-center space-x-2 ml-auto">
+          <button type="button" onclick="closeAssetModal()" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white text-xs font-medium">Cancel</button>
+          <button type="button" onclick="saveAssetFromModal()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30">Save Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Adjust 529 Contribution Schedule -->
+  <div id="modal529" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-card border border-surface-borderLight rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-surface-border pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-emerald-950 border border-emerald-800/80 flex items-center justify-center text-emerald-400 font-bold text-xs">529</div>
+          <div>
+            <h3 class="text-base font-bold text-white">Adjust College 529 Schedule</h3>
+            <p class="text-[11px] text-slate-400">Simulates market compound return + monthly additions.</p>
+          </div>
+        </div>
+        <button onclick="toggle529Modal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Current 529 Balance ($)</label>
+          <input id="input529Balance" type="number" value="38388" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Monthly Contribution ($)</label>
+            <input id="input529Monthly" type="number" value="500" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Expected Annual Return (%)</label>
+            <input id="input529Return" type="number" step="0.1" value="6.5" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-emerald-500">
+            <span class="text-[10px] text-slate-500">Wealthfront Blended 529 Index</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Target College Fund Goal ($)</label>
+            <input id="input529Target" type="number" value="160000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-emerald-500">
+            <span class="text-[10px] text-slate-500">4-Yr In-State UC Benchmark</span>
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Years to Matriculation</label>
+            <input type="number" value="9" disabled class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 font-mono text-slate-400">
+            <span class="text-[10px] text-slate-500">Age 9 &rarr; 18 (Class of 2035)</span>
+          </div>
+        </div>
+
+        <!-- Real-time Preview in Modal -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-emerald-900/40 space-y-2">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-slate-400">Total Future Value at Age 18:</span>
+            <span id="preview529Total" class="font-mono font-bold text-emerald-400 text-base tabular-nums">$137,978</span>
+          </div>
+          <div class="text-[11px] text-slate-400 flex justify-between">
+            <span>Principal Invested: <strong id="preview529Principal" class="text-slate-200 font-mono">$92,388</strong></span>
+            <span>Compound Growth: <strong id="preview529Gains" class="text-emerald-400 font-mono">+$45,590</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-surface-border">
+        <button onclick="toggle529Modal()" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white transition text-xs font-medium">Cancel</button>
+        <button onclick="apply529Schedule()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition text-xs font-semibold shadow-md shadow-emerald-600/30">Save Schedule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Record Multi-Asset Snapshot (Supports midyear dates) -->
+  <div id="modalSnapshot" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-card border border-surface-border rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-surface-border">
+        <div>
+          <h3 class="text-base font-bold text-white">Record Portfolio Snapshot</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Captures asset valuations for multi-year trend tracking & CAGR calculations.</p>
+        </div>
+        <button onclick="closeSnapshotModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Snapshot Date</label>
+            <input type="date" id="snapInputDate" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Snapshot Label / Description</label>
+            <input type="text" id="snapInputLabel" placeholder="e.g. Mid-2026 or Q3 2026" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-slate-300 font-semibold">Account Balances for this Snapshot ($)</label>
+            <button type="button" onclick="populateCurrentBalancesInSnapshotModal()" class="text-[11px] text-emerald-400 hover:underline">Reset to Current Values</button>
+          </div>
+          <div class="max-h-56 overflow-y-auto space-y-2 pr-1 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800" id="snapshotBalancesFormList">
+            <!-- Dynamically populated per asset -->
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-3 border-t border-surface-border">
+        <button onclick="closeSnapshotModal()" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white transition text-xs font-medium">Cancel</button>
+        <button onclick="saveSnapshotFromModal()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition text-xs font-semibold shadow-md shadow-emerald-600/30">Save Snapshot</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Add / Edit Discrete Life Event -->
+  <div id="modalEvent" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-card border border-surface-border rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-surface-border">
+        <div>
+          <h3 class="text-base font-bold text-white" id="modalEventTitle">Add Discrete Life Event</h3>
+          <p class="text-xs text-slate-400 mt-0.5">One-time lump sum cash infusion or capital expense.</p>
+        </div>
+        <button onclick="closeEventModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Event Description</label>
+          <input type="text" id="inpEventName" placeholder="e.g. Downsize Home, Inheritance, Wedding" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Event Year</label>
+            <input type="number" min="2026" max="2083" id="inpEventYear" value="2035" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Cash Impact (+ / - $)</label>
+            <input type="number" step="1000" id="inpEventAmount" placeholder="500000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 font-mono text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-3 border-t border-surface-border">
+        <button onclick="closeEventModal()" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white transition text-xs font-medium">Cancel</button>
+        <button onclick="saveEventFromModal()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition text-xs font-semibold shadow-md shadow-indigo-600/30">Save Event</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: Category Historical Spending Trendline & Annotations Modal -->
+  <div id="categoryTrendModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-card border border-surface-borderLight rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-surface-border pb-3">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2" id="modalCategoryTitle">Category Trend</h3>
+          <p class="text-xs text-slate-400 mt-0.5" id="modalCategorySubtitle">Historical 5-year actuals</p>
+        </div>
+        <button onclick="closeCategoryTrendModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <!-- Mini Chart Canvas -->
+      <div class="h-56 w-full relative">
+        <canvas id="categoryTrendChart"></canvas>
+      </div>
+
+      <!-- Add / Edit Annotation Form -->
+      <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-white flex items-center gap-1.5">
+            <span>📌</span> Add or Update Historical Annotation
+          </span>
+          <span class="text-[11px] text-slate-500 font-mono">Trickles up to Main Spending Chart</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <select id="inputAnnoYear" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+          </select>
+          <input type="text" id="inputAnnoText" placeholder="e.g. Roof repair shingles, Daycare ended, Medical deductible" class="sm:col-span-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          <button type="button" onclick="saveCategoryAnnotationFromModal()" class="px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition shadow-sm">
+            Save Note
+          </button>
+        </div>
+        <!-- Current Notes for this category -->
+        <div id="modalCategoryNotesList" class="space-y-1 pt-1 text-xs"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 6: Individual Asset Historical Balance Trendline Modal -->
+  <div id="assetTrendModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-card border border-surface-borderLight rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-surface-border pb-3">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2" id="modalAssetTrendTitle">Asset Historical Trajectory</h3>
+          <p class="text-xs text-slate-400 mt-0.5" id="modalAssetTrendSubtitle">Balance history across audited annual snapshots</p>
+        </div>
+        <button onclick="closeAssetTrendModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+      </div>
+
+      <!-- KPI Summary Cards for this Asset -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center" id="modalAssetTrendKpis">
+        <!-- Dynamically populated via renderAssetTrendModal() -->
+      </div>
+
+      <!-- Asset Trend Line Chart Canvas -->
+      <div class="h-60 w-full relative">
+        <canvas id="assetTrendModalChart"></canvas>
+      </div>
+
+      <!-- Snapshot Balance History Table for this Asset -->
+      <div class="space-y-2">
+        <div class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+          <span>📅</span> Historical Annual Snapshot Balances
+        </div>
+        <div class="max-h-44 overflow-y-auto border border-surface-border rounded-lg">
+          <table class="w-full text-left text-xs border-collapse font-mono">
+            <thead>
+              <tr class="sticky top-0 bg-slate-950 border-b border-surface-border text-[10px] uppercase text-slate-400">
+                <th class="py-2 px-3">Snapshot Date</th>
+                <th class="py-2 px-3 text-right">Balance</th>
+                <th class="py-2 px-3 text-right">YoY Dollar Change</th>
+                <th class="py-2 px-3 text-right">YoY Growth (%)</th>
+              </tr>
+            </thead>
+            <tbody id="modalAssetHistoryTableBody" class="divide-y divide-surface-border/40 text-slate-300">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modular JavaScript architecture: data/state_bundle.js, src/engine.js, src/store.js, src/ui.js -->
+</body>
+</html>
