@@ -87,7 +87,7 @@ Squarespace allows you to embed custom interactive web tools via a **Code Block*
 <!-- Financial Planner Interactive Embed Container -->
 <div class="fp-embed-wrapper" style="position: relative; width: 100%; min-height: 920px; height: 92vh; margin: 0 auto; overflow: hidden; border-radius: 14px; box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); background-color: #020617;">
   <iframe 
-    src="https://YOUR_GITHUB_USERNAME.github.io/financial-planner/" 
+    src="https://jessenicholsfromsanfrancisco.github.io/financial-planner/v4/" 
     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
     title="Financial Planner & Wealth Simulator"
     allow="clipboard-write"

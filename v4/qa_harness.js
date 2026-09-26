@@ -64,12 +64,12 @@ if (typeof require !== 'undefined') {
   globalThis.FireEngine = require('./src/engine.js');
 } else if (typeof load !== 'undefined') {
   try {
-    load('demo/src/engine.js');
+    load('src/engine.js');
   } catch (e) {
     try {
-      load('src/engine.js');
-    } catch (e2) {
       load('./src/engine.js');
+    } catch (e2) {
+      load('demo/v4/src/engine.js');
     }
   }
 }

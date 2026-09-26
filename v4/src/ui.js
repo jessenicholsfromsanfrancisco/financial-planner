@@ -43,155 +43,237 @@
   function getCurrentAgeAndYear() {
     const age = (window.appState && window.appState.user && window.appState.user.age)
       ? window.appState.user.age
-      : 43.5;
+      : 30.1;
     const year = (window.appState && window.appState.projectionStartYear)
       ? window.appState.projectionStartYear
-      : 2026;
+      : (new Date().getFullYear());
     return { currentAge: age, currentYear: year };
   }
 
+    function openAddSpendingModal() {
+      const title = document.getElementById('modalSpendingTitle');
+      if (title) title.innerText = 'Add Spending Category';
+      const orig = document.getElementById('editSpendingCategoryOriginal');
+      if (orig) orig.value = '';
+      const inpName = document.getElementById('inpSpendCatName');
+      if (inpName) inpName.value = '';
+      const inpGrp = document.getElementById('inpSpendCatGroup');
+      if (inpGrp) inpGrp.value = 'Living';
+      const inpType = document.getElementById('inpSpendCatType');
+      if (inpType) inpType.value = 'Fixed';
+      const inpMo = document.getElementById('inpSpendMonthly');
+      if (inpMo) inpMo.value = '';
+      const inpYr = document.getElementById('inpSpendAnnual');
+      if (inpYr) inpYr.value = '';
+      const inpNotes = document.getElementById('inpSpendNotes');
+      if (inpNotes) inpNotes.value = '';
+      const btnDel = document.getElementById('btnDeleteSpending');
+      if (btnDel) btnDel.classList.add('hidden');
+      const modal = document.getElementById('modalSpendingCategory');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function openEditSpendingModal(categoryName) {
+      const item = (window.appState.spending || []).find(s => s.category === categoryName);
+      if (!item) return;
+
+      const title = document.getElementById('modalSpendingTitle');
+      if (title) title.innerText = 'Edit Spending Category';
+      const orig = document.getElementById('editSpendingCategoryOriginal');
+      if (orig) orig.value = item.category;
+      const inpName = document.getElementById('inpSpendCatName');
+      if (inpName) inpName.value = item.category;
+      const inpGrp = document.getElementById('inpSpendCatGroup');
+      if (inpGrp) inpGrp.value = item.group || 'General';
+      const inpType = document.getElementById('inpSpendCatType');
+      if (inpType) inpType.value = item.type || 'Fixed';
+
+      const { currentYear } = getCurrentAgeAndYear();
+      const annualAmt = item.amount !== undefined ? item.amount : (item['actual' + currentYear] !== undefined ? item['actual' + currentYear] : (item.actual2025 || 0));
+      const inpYr = document.getElementById('inpSpendAnnual');
+      if (inpYr) inpYr.value = annualAmt;
+      const inpMo = document.getElementById('inpSpendMonthly');
+      if (inpMo) inpMo.value = Math.round(annualAmt / 12);
+      const inpNotes = document.getElementById('inpSpendNotes');
+      if (inpNotes) inpNotes.value = item.notes || '';
+
+      const btnDel = document.getElementById('btnDeleteSpending');
+      if (btnDel) btnDel.classList.remove('hidden');
+      const modal = document.getElementById('modalSpendingCategory');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeSpendingModal() {
+      const modal = document.getElementById('modalSpendingCategory');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function syncSpendingModalAmounts(fromField) {
+      const inpMo = document.getElementById('inpSpendMonthly');
+      const inpYr = document.getElementById('inpSpendAnnual');
+      if (!inpMo || !inpYr) return;
+
+      if (fromField === 'monthly') {
+        const mo = parseFloat(inpMo.value) || 0;
+        inpYr.value = Math.round(mo * 12);
+      } else if (fromField === 'annual') {
+        const yr = parseFloat(inpYr.value) || 0;
+        inpMo.value = Math.round(yr / 12);
+      }
+    }
+
+    function saveSpendingFromModal() {
+      const origInput = document.getElementById('editSpendingCategoryOriginal');
+      const origName = origInput ? origInput.value.trim() : '';
+      const inpName = document.getElementById('inpSpendCatName');
+      const name = inpName ? inpName.value.trim() : '';
+      if (!name) {
+        alert('Please enter a spending category name.');
+        return;
+      }
+      const inpGrp = document.getElementById('inpSpendCatGroup');
+      const group = (inpGrp && inpGrp.value.trim()) ? inpGrp.value.trim() : 'General';
+      const inpType = document.getElementById('inpSpendCatType');
+      const type = inpType ? inpType.value : 'Fixed';
+      const inpYr = document.getElementById('inpSpendAnnual');
+      const annualAmt = inpYr ? (parseFloat(inpYr.value) || 0) : 0;
+      const inpNotes = document.getElementById('inpSpendNotes');
+      const notes = inpNotes ? inpNotes.value.trim() : '';
+      const { currentYear } = getCurrentAgeAndYear();
+
+      if (!window.appState.spending) window.appState.spending = [];
+
+      if (origName) {
+        const item = window.appState.spending.find(s => s.category === origName);
+        if (item) {
+          item.category = name;
+          item.group = group;
+          item.type = type;
+          item.notes = notes;
+          item.amount = annualAmt;
+          item['actual' + currentYear] = annualAmt;
+          item.actual2025 = annualAmt;
+          item.actual2026 = annualAmt;
+        }
+      } else {
+        window.appState.spending.push({
+          category: name,
+          group: group,
+          type: type,
+          notes: notes,
+          actual2023: 0,
+          actual2024: 0,
+          actual2025: annualAmt,
+          actual2026: annualAmt,
+          amount: annualAmt
+        });
+      }
+
+      saveState();
+      closeSpendingModal();
+      renderSpendingTable();
+      updateMasterTrajectory();
+      markMcStale();
+    }
+
+    function deleteCurrentSpendingCategory() {
+      const origInput = document.getElementById('editSpendingCategoryOriginal');
+      const origName = origInput ? origInput.value.trim() : '';
+      if (!origName) return;
+      if (!confirm(`Are you sure you want to delete "${origName}"?`)) return;
+
+      window.appState.spending = (window.appState.spending || []).filter(s => s.category !== origName);
+      saveState();
+      closeSpendingModal();
+      renderSpendingTable();
+      updateMasterTrajectory();
+      markMcStale();
+    }
+
+    function quickDeleteSpending(categoryName) {
+      if (!confirm(`Delete category "${categoryName}"?`)) return;
+      window.appState.spending = (window.appState.spending || []).filter(s => s.category !== categoryName);
+      saveState();
+      renderSpendingTable();
+      updateMasterTrajectory();
+      markMcStale();
+    }
 
     function renderSpendingTable() {
       const tbody = document.getElementById('spendingTableBody');
-      const thead = document.getElementById('spendingTableHead');
       if (!tbody) return;
 
       if (!window.appState.spending || window.appState.spending.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-slate-500">No spending records loaded from CSV.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">No spending records loaded. Click "+ Add Spending Category" above.</td></tr>';
         return;
       }
 
-      // Dynamically discover all historical actual years present (sorted descending: e.g. 2025, 2024, 2023, 2022, 2021)
-      const availYears = (window.getAvailableSpendingYears ? window.getAvailableSpendingYears() : [2021, 2022, 2023, 2024, 2025]).slice().sort((a, b) => b - a);
-      const latestYr = availYears[0] || 2025;
-      const priorYr = availYears[1] || (latestYr - 1);
-
-      // Render Dynamic Table Header
-      if (thead) {
-        let headHtml = `
-          <tr class="border-b border-surface-border text-[11px] uppercase tracking-wider text-slate-400 font-semibold bg-slate-950/40">
-            <th class="py-3 px-5">Spending Category</th>
-            <th class="py-3 px-3">Classification</th>
-            <th class="py-3 px-3 text-right text-white">${latestYr} Actual</th>
-            <th class="py-3 px-3 text-right text-slate-400">Monthly Avg</th>
-        `;
-        availYears.slice(1).forEach(yr => {
-          headHtml += `<th class="py-3 px-3 text-right">${yr} Actual</th>`;
-        });
-        headHtml += `
-            <th class="py-3 px-3 text-right">YoY Delta</th>
-            <th class="py-3 px-4">Priority</th>
-          </tr>
-        `;
-        thead.innerHTML = headHtml;
-      }
-
-      const yearTotals = {};
-      availYears.forEach(y => { yearTotals[y] = 0; });
+      const { currentYear } = getCurrentAgeAndYear();
+      let totalAnnual = 0;
       let totalFixed = 0;
       let totalDisc = 0;
 
       const rowsHtml = window.appState.spending.map(item => {
-        const aLatest = item['actual' + latestYr] || 0;
-        const aPrior = item['actual' + priorYr] || 0;
-        const delta = aLatest - aPrior;
+        const amt = item.amount !== undefined ? item.amount : (item['actual' + currentYear] !== undefined ? item['actual' + currentYear] : (item.actual2025 || 0));
+        const moAmt = Math.round(amt / 12);
         const isFixed = item.type === 'Fixed';
 
-        availYears.forEach(y => {
-          yearTotals[y] += (item['actual' + y] || 0);
-        });
-
-        if (isFixed) totalFixed += aLatest;
-        else totalDisc += aLatest;
-
-        const isNeg = delta < 0;
-        const deltaClass = isNeg ? 'text-emerald-400' : (delta > 0 ? 'text-rose-400' : 'text-slate-400');
-        const deltaStr = (delta >= 0 ? '+$' : '-$') + Math.abs(delta).toLocaleString();
+        totalAnnual += amt;
+        if (isFixed) totalFixed += amt;
+        else totalDisc += amt;
 
         const badgeClass = isFixed 
           ? 'bg-blue-950/80 text-blue-300 border-blue-800/60' 
           : 'bg-amber-950/80 text-amber-300 border-amber-800/60';
 
-        const priorityBadge = isFixed
-          ? '<span class="text-[10px] text-slate-500 font-mono">Core (Fixed)</span>'
-          : '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-950/60 text-rose-300 border border-rose-800/50 font-mono">Trimmable (GK)</span>';
-
-        const notes = window.getSpendingAnnotations ? window.getSpendingAnnotations(item.category) : {};
-        const noteCount = Object.keys(notes).length;
-        const noteBadge = noteCount > 0
-          ? `<span class="px-1.5 py-0.5 rounded text-[9px] bg-indigo-950/90 text-indigo-300 border border-indigo-700/80 font-mono font-semibold" title="${noteCount} historical notes recorded">📌 ${noteCount} note${noteCount > 1 ? 's' : ''}</span>`
-          : '';
-
-        let rowCols = `
-          <td class="py-3 px-5">
-            <div class="font-semibold text-white group-hover:text-indigo-300 transition flex items-center gap-1.5">
-              <span>${item.category}</span>
-              <span class="text-[10px] text-slate-500 opacity-60 group-hover:opacity-100">📈</span>
-              ${noteBadge}
-            </div>
-            <div class="text-[10px] text-slate-500">${item.group} &bull; ${item.notes || ''}</div>
-          </td>
-          <td class="py-3 px-3" onclick="event.stopPropagation()">
-            <button type="button" onclick="toggleSpendingType('${item.category.replace(/'/g, "\\'")}')" class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${badgeClass} hover:opacity-80 transition cursor-pointer" title="Click to toggle Fixed vs Discretionary">
-              ${item.type} ⇄
-            </button>
-          </td>
-          <td class="py-3 px-3 text-right font-mono font-bold text-white tabular-nums">$${aLatest.toLocaleString()}</td>
-          <td class="py-3 px-3 text-right font-mono text-slate-400 tabular-nums">$${Math.round(aLatest / 12).toLocaleString()}</td>
-        `;
-
-        availYears.slice(1).forEach(yr => {
-          const val = item['actual' + yr] || 0;
-          rowCols += `<td class="py-3 px-3 text-right font-mono text-slate-400 tabular-nums">${val > 0 ? '$' + val.toLocaleString() : '—'}</td>`;
-        });
-
-        rowCols += `
-          <td class="py-3 px-3 text-right font-mono font-medium ${deltaClass} tabular-nums">${deltaStr}</td>
-          <td class="py-3 px-4">${priorityBadge}</td>
-        `;
+        const safeCat = item.category.replace(/'/g, "\\'");
 
         return `
-          <tr class="hover:bg-slate-900/60 transition cursor-pointer group" onclick="showCategorySpendingTrend('${item.category.replace(/'/g, "\\'")}')" title="Click to view trendline & add historical notes">
-            ${rowCols}
+          <tr class="hover:bg-slate-900/60 transition group">
+            <td class="py-3 px-5">
+              <div class="font-semibold text-white group-hover:text-indigo-300 transition flex items-center gap-1.5">
+                <span>${item.category}</span>
+              </div>
+              <div class="text-[10px] text-slate-500">${item.group || 'General'}${item.notes ? ' &bull; ' + item.notes : ''}</div>
+            </td>
+            <td class="py-3 px-3">
+              <button type="button" onclick="toggleSpendingType('${safeCat}')" class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${badgeClass} hover:opacity-80 transition cursor-pointer" title="Click to toggle Fixed vs Discretionary">
+                ${item.type} ⇄
+              </button>
+            </td>
+            <td class="py-3 px-3 text-right font-mono text-slate-300 tabular-nums">$${moAmt.toLocaleString()}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-white tabular-nums">$${amt.toLocaleString()}</td>
+            <td class="py-3 px-4 text-right space-x-2 whitespace-nowrap">
+              <button type="button" onclick="openEditSpendingModal('${safeCat}')" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold px-2.5 py-1 rounded bg-indigo-950/50 hover:bg-indigo-900/80 border border-indigo-800/50 transition">
+                Edit
+              </button>
+              <button type="button" onclick="quickDeleteSpending('${safeCat}')" class="text-xs text-rose-400 hover:text-rose-300 font-semibold px-2 py-1 rounded hover:bg-rose-950/50 transition" title="Delete category">
+                &times;
+              </button>
+            </td>
           </tr>
         `;
       }).join('');
 
-      // Add prominent summary footer row
-      const totalLatest = yearTotals[latestYr] || 0;
-      const totalPrior = yearTotals[priorYr] || 0;
-      const totalDelta = totalLatest - totalPrior;
-      const totalDeltaClass = totalDelta <= 0 ? 'text-emerald-400' : 'text-rose-400';
-      const totalDeltaStr = (totalDelta >= 0 ? '+$' : '-$') + Math.abs(totalDelta).toLocaleString();
-
-      let footerCols = `
-        <td class="py-3.5 px-5 text-indigo-300 flex items-center gap-1.5">
-          <span>∑</span> Total Annual Spending (Actuals)
-        </td>
-        <td class="py-3.5 px-3 font-mono text-[10px] text-slate-400">${window.appState.spending.length} Cats</td>
-        <td class="py-3.5 px-3 text-right font-mono font-bold text-white tabular-nums">$${totalLatest.toLocaleString()}</td>
-        <td class="py-3.5 px-3 text-right font-mono text-slate-400 tabular-nums">$${Math.round(totalLatest / 12).toLocaleString()}</td>
-      `;
-
-      availYears.slice(1).forEach(yr => {
-        footerCols += `<td class="py-3.5 px-3 text-right font-mono text-slate-300 tabular-nums">$${(yearTotals[yr] || 0).toLocaleString()}</td>`;
-      });
-
-      footerCols += `
-        <td class="py-3.5 px-3 text-right font-mono font-bold ${totalDeltaClass} tabular-nums">${totalDeltaStr}</td>
-        <td class="py-3.5 px-4 font-mono text-[10px] text-slate-400 whitespace-nowrap">Fixed: $${Math.round(totalFixed/1000)}k | Disc: $${Math.round(totalDisc/1000)}k</td>
-      `;
-
+      const totalMonthly = Math.round(totalAnnual / 12);
       const footerHtml = `
-        <tr class="bg-slate-950 font-bold border-t-2 border-surface-border text-white shadow-inner">
-          ${footerCols}
+        <tr class="bg-slate-950 font-bold border-t-2 border-surface-border text-white shadow-inner text-xs">
+          <td class="py-3.5 px-5 text-indigo-300 flex items-center gap-1.5">
+            <span>∑</span> Total Annual Budget
+          </td>
+          <td class="py-3.5 px-3 font-mono text-[10px] text-slate-400">${window.appState.spending.length} Categories</td>
+          <td class="py-3.5 px-3 text-right font-mono text-slate-300 tabular-nums">$${totalMonthly.toLocaleString()} / mo</td>
+          <td class="py-3.5 px-3 text-right font-mono font-bold text-emerald-400 tabular-nums text-sm">$${totalAnnual.toLocaleString()}</td>
+          <td class="py-3.5 px-4 text-right font-mono text-[10px] text-slate-400 whitespace-nowrap">Fixed: $${Math.round(totalFixed/1000)}k | Disc: $${Math.round(totalDisc/1000)}k</td>
         </tr>
       `;
 
       tbody.innerHTML = rowsHtml + footerHtml;
 
-      updateSpendingScorecards(totalLatest, totalPrior, totalFixed, totalDisc);
-      renderSpendingTrendsChart();
+      const lblCount = document.getElementById('spendingCountLabel');
+      if (lblCount) lblCount.innerText = `(${window.appState.spending.length} Categories)`;
+
+      updateSpendingScorecards(totalAnnual, totalAnnual, totalFixed, totalDisc);
     }
 
     function toggleSpendingType(categoryName) {
@@ -200,37 +282,36 @@
         item.type = item.type === 'Fixed' ? 'Discretionary' : 'Fixed';
         saveState();
         renderSpendingTable();
+        updateMasterTrajectory();
+        markMcStale();
       }
     }
 
     function updateSpendingScorecards(totalLatest, totalPrior, totalFixed, totalDisc) {
-      const container = document.getElementById('tab-spending');
-      if (!container) return;
-      const cards = container.querySelectorAll('.grid > div');
-      if (cards.length >= 4) {
-        const availYears = window.getAvailableSpendingYears ? window.getAvailableSpendingYears() : [2024, 2025];
-        const priorYear = availYears.length >= 2 ? availYears[availYears.length - 2] : null;
-        const yoyPct = totalPrior > 0 ? (((totalLatest - totalPrior) / totalPrior) * 100).toFixed(1) : 0;
-        cards[0].querySelector('.tabular-nums').innerText = '$' + totalLatest.toLocaleString();
+      const elTotal = document.getElementById('spendScorecardTotal');
+      if (elTotal) elTotal.innerText = '$' + totalLatest.toLocaleString();
+      const elMo = document.getElementById('spendScorecardMonthly');
+      if (elMo) elMo.innerText = `$${Math.round(totalLatest / 12).toLocaleString()} / mo`;
 
-        const direction = totalLatest >= totalPrior ? 'up' : 'down';
-        const priorText = (totalPrior > 0 && priorYear) ? `(${direction} from $${(totalPrior/1000).toFixed(1)}k in ${priorYear})` : '';
-        cards[0].querySelector('.font-mono:last-child').innerText = `$${Math.round(totalLatest / 12).toLocaleString()} / mo ${priorText}`.trim();
-        cards[0].querySelector('span.px-2').innerText = `${yoyPct > 0 ? '+' : ''}${yoyPct}% YoY`;
+      const fixedPct = totalLatest > 0 ? ((totalFixed / totalLatest) * 100).toFixed(1) : 0;
+      const elFixed = document.getElementById('spendScorecardFixed');
+      if (elFixed) elFixed.innerText = '$' + totalFixed.toLocaleString();
+      const elFixedMo = document.getElementById('spendScorecardFixedMonthly');
+      if (elFixedMo) elFixedMo.innerText = `$${Math.round(totalFixed / 12).toLocaleString()} / mo (Core Living)`;
+      const elFixedPct = document.getElementById('spendScorecardFixedPct');
+      if (elFixedPct) elFixedPct.innerText = `${fixedPct}% of budget`;
 
-        const fixedPct = totalLatest > 0 ? ((totalFixed / totalLatest) * 100).toFixed(1) : 0;
-        cards[1].querySelector('.tabular-nums').innerText = '$' + totalFixed.toLocaleString();
-        cards[1].querySelector('.font-mono:last-child').innerText = `$${Math.round(totalFixed / 12).toLocaleString()} / mo (Mortgage, Health, Care)`;
-        cards[1].querySelector('span.px-2').innerText = `${fixedPct}% of budget`;
+      const discPct = totalLatest > 0 ? ((totalDisc / totalLatest) * 100).toFixed(1) : 0;
+      const elDisc = document.getElementById('spendScorecardDisc');
+      if (elDisc) elDisc.innerText = '$' + totalDisc.toLocaleString();
+      const elDiscMo = document.getElementById('spendScorecardDiscMonthly');
+      if (elDiscMo) elDiscMo.innerText = `$${Math.round(totalDisc / 12).toLocaleString()} / mo (Lifestyle & Travel)`;
+      const elDiscPct = document.getElementById('spendScorecardDiscPct');
+      if (elDiscPct) elDiscPct.innerText = `${discPct}% of budget`;
 
-        const discPct = totalLatest > 0 ? ((totalDisc / totalLatest) * 100).toFixed(1) : 0;
-        cards[2].querySelector('.tabular-nums').innerText = '$' + totalDisc.toLocaleString();
-        cards[2].querySelector('.font-mono:last-child').innerText = `$${Math.round(totalDisc / 12).toLocaleString()} / mo (Travel, Dining, Hobbies)`;
-        cards[2].querySelector('span.px-2').innerText = `${discPct}% of budget`;
-
-        const buffer = Math.round(totalDisc * 0.5);
-        cards[3].querySelector('.tabular-nums').innerText = '-$' + buffer.toLocaleString();
-      }
+      const buffer = Math.round(totalDisc * 0.5);
+      const elBuffer = document.getElementById('spendScorecardBuffer');
+      if (elBuffer) elBuffer.innerText = '-$' + buffer.toLocaleString();
     }
 
     // Historical Spending Trends Chart & Annotation Engine
@@ -3735,7 +3816,14 @@
   root.onStartYearSliderChange = onStartYearSliderChange;
   root.openAddAssetModal = openAddAssetModal;
   root.openAddEventModal = openAddEventModal;
+  root.openAddSpendingModal = openAddSpendingModal;
   root.openEditAssetModal = openEditAssetModal;
+  root.openEditSpendingModal = openEditSpendingModal;
+  root.closeSpendingModal = closeSpendingModal;
+  root.syncSpendingModalAmounts = syncSpendingModalAmounts;
+  root.saveSpendingFromModal = saveSpendingFromModal;
+  root.deleteCurrentSpendingCategory = deleteCurrentSpendingCategory;
+  root.quickDeleteSpending = quickDeleteSpending;
   root.openSnapshotModal = openSnapshotModal;
   root.populateCurrentBalancesInSnapshotModal = populateCurrentBalancesInSnapshotModal;
   root.renderAssetTrendsChart = renderAssetTrendsChart;

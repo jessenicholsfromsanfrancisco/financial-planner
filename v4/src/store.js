@@ -215,10 +215,20 @@
       const amt = parseFloat(r.amount) || 0;
       if (period === 2023) catMap[cat].actual2023 = amt;
       if (period === 2024) catMap[cat].actual2024 = amt;
-      if (period === 2025) catMap[cat].actual2025 = amt;
+      if (period === 2025) {
+        catMap[cat].actual2025 = amt;
+        catMap[cat].actual2026 = amt;
+        catMap[cat].amount = amt;
+      }
     });
 
-    root.appState.spending = Object.values(catMap);
+    const spendList = Object.values(catMap);
+    spendList.forEach(item => {
+      if (item.amount === undefined) {
+        item.amount = item.actual2025 || item.actual2026 || 0;
+      }
+    });
+    root.appState.spending = spendList;
   }
 
   function recalculateAllAssetCAGRs() {

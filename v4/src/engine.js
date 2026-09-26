@@ -151,9 +151,9 @@
     let curPreTax = buckets.curPreTax;
     let curRoth = buckets.curRoth || 0;
 
-    const baseSpend = (state.spending || []).reduce((s, x) => s + (x.actual2025 || 0), 0) || 65000;
+    const baseSpend = (state.spending || []).reduce((s, x) => s + (x.amount !== undefined ? x.amount : (x.actual2026 !== undefined ? x.actual2026 : (x.actual2025 || 0))), 0) || 65000;
     const discItems = (state.spending || []).filter(x => x.type === 'Discretionary');
-    const totalDisc = discItems.length > 0 ? discItems.reduce((s, x) => s + (x.actual2025 || 0), 0) : 20000;
+    const totalDisc = discItems.length > 0 ? discItems.reduce((s, x) => s + (x.amount !== undefined ? x.amount : (x.actual2026 !== undefined ? x.actual2026 : (x.actual2025 || 0))), 0) : 20000;
     const discTrimDollars = totalDisc * trimPct;
 
     const macro = a.macro || {};
@@ -556,7 +556,7 @@
       // Granular category breakdown for forecast ledger
       const categoryOutflows = {};
       (state.spending || []).forEach(item => {
-        const base25 = item.actual2025 || 0;
+        const base25 = (item.amount !== undefined ? item.amount : (item.actual2026 !== undefined ? item.actual2026 : (item.actual2025 || 0)));
         const isFixed = item.type === 'Fixed';
         let yrVal = base25 * cpiFactor;
 
