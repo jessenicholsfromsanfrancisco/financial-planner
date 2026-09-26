@@ -71,6 +71,16 @@ Whenever migrating a new development version (`dev/vN`) to the public demo (`dem
 ### Decision 7: Simplified Feature Scope
 - **Omit Niche Modules**: Child 529 college savings planning and specialized DAF charitable appreciated stock gifting modules are removed from the demo interface to keep the initial user experience streamlined and universally applicable.
 
+### Decision 8: Interactive "How to Use" & Methodology Guide Tab
+- **Onboarding & Methodology Tab**: Include a dedicated top navigation tab (`#tabBtn-guide` and `#tab-guide`) labeled **"How to Use"** with a `?` icon, plus a companion link in the top privacy banner.
+- **Visitor Onboarding**:
+  - Step 1: Calibrate accounts and balances in *Assets & Ledger* across Cash, Pre-Tax, Tax-Free (Roth), and Taxable Brokerage.
+  - Step 2: Define living expenses in *Annual Spending* with *Fixed* vs. *Discretionary* toggles.
+  - Step 3: Set timeline, career earnings, 401(k) contributions, inflation, and milestone events in *Forecasts & Assumptions*.
+  - Step 4: Analyze solvency and 1,000-run stochastic Monte Carlo risk on the *Dashboard*.
+- **Quantitative Transparency**: Clearly document the career cash surplus sweep into taxable investments, the multi-tier retirement tax decumulation waterfall, the 1,000-path geometric Brownian motion Monte Carlo engine with sequence-of-returns percentiles (p10/p25/p50/p75/p90), and strategic Roth conversion / RMD defense logic.
+- **Privacy Reassurance**: Explicitly document client-side in-memory `sessionStorage` execution, JSON local disk backup, and CSV archive export.
+
 ---
 
 ## 3. Step-by-Step Runbook: Migrating Future Versions (e.g. dev/v5 to demo/v5)

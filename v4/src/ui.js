@@ -615,12 +615,12 @@
       if (activeTab) activeTab.classList.add('active');
 
       document.querySelectorAll('#navTabs button').forEach(btn => {
-        btn.className = "px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800/60 transition";
+        btn.className = "px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800/60 transition inline-flex items-center gap-1.5";
       });
 
       const activeBtn = document.getElementById('tabBtn-' + tabId);
       if (activeBtn) {
-        activeBtn.className = "px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded-md transition shadow-sm";
+        activeBtn.className = "px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded-md transition shadow-sm inline-flex items-center gap-1.5";
       }
 
       if (tabId === 'dashboard') setTimeout(updateMasterTrajectory, 50);
