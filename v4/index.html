@@ -979,7 +979,7 @@
     <!-- ========================================================================= -->
     <!-- TAB 4: HOW TO USE & CALCULATION METHODOLOGY -->
     <!-- ========================================================================= -->
-    <div id="tab-guide" class="tab-content space-y-8">
+    <div id="tab-guide" class="tab-content space-y-8 pb-16">
 
       <!-- Hero Header -->
       <div class="relative overflow-hidden p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/20 shadow-2xl">
@@ -1504,6 +1504,25 @@
   </div>
 
 
+
+  <!-- Dynamic iframe auto-resizer: communicates content height to parent embed container (Squarespace) -->
+  <script>
+    function sendHeightToParent() {
+      try {
+        if (window.parent && window.parent !== window) {
+          var h = Math.max(
+            document.body.scrollHeight || 0,
+            document.documentElement.scrollHeight || 0,
+            document.body.offsetHeight || 0
+          );
+          window.parent.postMessage({ type: 'financial_planner_resize', height: h }, '*');
+        }
+      } catch (e) {}
+    }
+    window.sendHeightToParent = sendHeightToParent;
+    window.addEventListener('load', function() { setTimeout(sendHeightToParent, 200); });
+    window.addEventListener('resize', sendHeightToParent);
+  </script>
 
   <!-- Modular JavaScript architecture: data/state_bundle.js, src/engine.js, src/store.js, src/ui.js -->
 </body>

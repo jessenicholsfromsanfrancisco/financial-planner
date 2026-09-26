@@ -655,6 +655,9 @@
         renderSpendingTable();
         setTimeout(renderSpendingTrendsChart, 50);
       }
+      if (typeof window.sendHeightToParent === 'function') {
+        setTimeout(window.sendHeightToParent, 100);
+      }
     }
 
     function updateWeightedReturnBadge() {

@@ -83,31 +83,41 @@ Squarespace allows you to embed custom interactive web tools via a **Code Block*
 4. Set the block width to span the desired width (or full page width).
 5. Double-click the Code block to open the editor and paste the snippet below:
 
-```html
-<!-- Financial Planner Interactive Embed Container -->
-<div class="fp-embed-wrapper" style="position: relative; width: 100%; min-height: 920px; height: 92vh; margin: 0 auto; overflow: hidden; border-radius: 14px; box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); background-color: #020617;">
+<!-- Financial Planner Interactive Embed Container (Auto-Resizing) -->
+<div class="fp-embed-wrapper" style="position: relative; width: 100%; min-height: 950px; margin: 0 auto; border-radius: 14px; box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); background-color: #020617; overflow: hidden;">
   <iframe 
+    id="fp-iframe"
     src="https://jessenicholsfromsanfrancisco.github.io/financial-planner/v4/" 
-    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
+    style="width: 100%; min-height: 950px; height: 950px; border: none; display: block;"
     title="Financial Planner & Wealth Simulator"
     allow="clipboard-write"
     loading="lazy">
   </iframe>
 </div>
 
+<!-- Dynamic Height Listener: automatically resizes iframe to fit any tab with zero cut-offs -->
+<script>
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'financial_planner_resize' && e.data.height) {
+      var iframe = document.getElementById('fp-iframe');
+      if (iframe) {
+        iframe.style.height = (e.data.height + 40) + 'px';
+      }
+    }
+  });
+</script>
+
 <!-- Optional responsive styling tweak for mobile screens -->
 <style>
   @media (max-width: 768px) {
     .fp-embed-wrapper {
-      height: 90vh !important;
-      min-height: 700px !important;
       border-radius: 8px !important;
     }
   }
 </style>
 ```
 
-> **IMPORTANT**: Make sure to replace `YOUR_GITHUB_USERNAME` in the `src` attribute with your actual GitHub username!
+> **Why the dynamic script is recommended**: It automatically detects which tab is active (Dashboard vs. How to Use vs. Forecasts Ledger) and resizes the iframe height so the content is **never chopped off at the bottom** and avoids awkward double scrollbars.
 
 6. Click **Save** and **Publish** the page in Squarespace.
 
